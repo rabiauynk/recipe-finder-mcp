@@ -12,6 +12,107 @@ from mcp.server.fastmcp import FastMCP
 # Spoonacular API base URL
 SPOONACULAR_BASE_URL = "https://api.spoonacular.com/recipes"
 
+# Türkçe-İngilizce malzeme çeviri sözlüğü
+INGREDIENT_TRANSLATIONS = {
+    # Temel malzemeler
+    "yumurta": "egg",
+    "yumurtalar": "eggs",
+    "peynir": "cheese",
+    "kaşar": "cheddar cheese",
+    "beyaz peynir": "white cheese",
+    "domates": "tomato",
+    "domatesler": "tomatoes",
+    "soğan": "onion",
+    "soğanlar": "onions",
+    "sarımsak": "garlic",
+    "patates": "potato",
+    "patatesler": "potatoes",
+    "havuç": "carrot",
+    "havuçlar": "carrots",
+
+    # Et ve tavuk
+    "tavuk": "chicken",
+    "tavuk eti": "chicken",
+    "et": "meat",
+    "dana eti": "beef",
+    "kuzu eti": "lamb",
+    "balık": "fish",
+    "ton balığı": "tuna",
+    "somon": "salmon",
+
+    # Tahıllar ve makarnalar
+    "makarna": "pasta",
+    "spagetti": "spaghetti",
+    "pirinç": "rice",
+    "bulgur": "bulgur",
+    "un": "flour",
+    "ekmek": "bread",
+
+    # Sebzeler
+    "biber": "pepper",
+    "kırmızı biber": "red pepper",
+    "yeşil biber": "green pepper",
+    "patlıcan": "eggplant",
+    "kabak": "zucchini",
+    "ispanak": "spinach",
+    "marul": "lettuce",
+    "salatalık": "cucumber",
+    "fasulye": "beans",
+    "nohut": "chickpeas",
+    "mercimek": "lentils",
+
+    # Baharatlar ve otlar
+    "tuz": "salt",
+    "karabiber": "black pepper",
+    "kırmızı pul biber": "red pepper flakes",
+    "kimyon": "cumin",
+    "fesleğen": "basil",
+    "maydanoz": "parsley",
+    "dereotu": "dill",
+    "nane": "mint",
+    "kekik": "thyme",
+
+    # Süt ürünleri
+    "süt": "milk",
+    "tereyağı": "butter",
+    "krema": "cream",
+    "yoğurt": "yogurt",
+
+    # Diğer
+    "zeytinyağı": "olive oil",
+    "yağ": "oil",
+    "sirke": "vinegar",
+    "limon": "lemon",
+    "portakal": "orange",
+    "elma": "apple",
+    "muz": "banana"
+}
+
+def translate_ingredients(ingredients_str: str) -> str:
+    """Türkçe malzemeleri İngilizceye çevir"""
+    # Virgülle ayrılmış malzemeleri liste yap
+    ingredients = [ing.strip().lower() for ing in ingredients_str.split(',')]
+    translated = []
+
+    for ingredient in ingredients:
+        # Önce tam eşleşme ara
+        if ingredient in INGREDIENT_TRANSLATIONS:
+            translated.append(INGREDIENT_TRANSLATIONS[ingredient])
+        else:
+            # Kısmi eşleşme ara (örn: "domates salçası" -> "tomato")
+            found = False
+            for tr_key, en_value in INGREDIENT_TRANSLATIONS.items():
+                if tr_key in ingredient or ingredient in tr_key:
+                    translated.append(en_value)
+                    found = True
+                    break
+
+            if not found:
+                # Çeviri bulunamazsa orijinal halini kullan
+                translated.append(ingredient)
+
+    return ','.join(translated)
+
 # Initialize the FastMCP server
 mcp = FastMCP("recipe-finder-mcp")
 
@@ -49,11 +150,15 @@ def find_recipes_by_ingredients(ingredients: str, number: int = 5) -> str:
     if not api_key:
         return "❌ Hata: SPOONACULAR_API_KEY environment variable bulunamadı. Lütfen API anahtarınızı ayarlayın."
 
+    # Türkçe malzemeleri İngilizceye çevir
+    original_ingredients = ingredients
+    translated_ingredients = translate_ingredients(ingredients)
+
     try:
         # Make request to Spoonacular API
         url = f"{SPOONACULAR_BASE_URL}/findByIngredients"
         params = {
-            "ingredients": ingredients,
+            "ingredients": translated_ingredients,  # Çevrilmiş malzemeleri kullan
             "number": number,
             "apiKey": api_key,
             "ranking": 1,  # Maximize used ingredients
@@ -66,10 +171,13 @@ def find_recipes_by_ingredients(ingredients: str, number: int = 5) -> str:
         recipes = response.json()
 
         if not recipes:
-            return f"🔍 '{ingredients}' malzemeleri ile hiç tarif bulunamadı. Farklı malzemeler deneyin."
+            return f"🔍 '{original_ingredients}' malzemeleri ile hiç tarif bulunamadı. Farklı malzemeler deneyin.\n💡 Çeviri: {original_ingredients} → {translated_ingredients}"
 
         # Format the response
-        result_text = f"🍳 **{ingredients}** malzemeleri ile bulduğum tarifler:\n\n"
+        result_text = f"🍳 **{original_ingredients}** malzemeleri ile bulduğum tarifler:\n"
+        if original_ingredients != translated_ingredients:
+            result_text += f"🔄 Çeviri: {original_ingredients} → {translated_ingredients}\n"
+        result_text += "\n"
 
         for i, recipe in enumerate(recipes, 1):
             title = recipe.get("title", "Bilinmeyen Tarif")

@@ -190,13 +190,22 @@ def find_recipes_by_ingredients(ingredients: str, number: int = 5) -> str:
             result_text += f"   • Eksik malzemeler: {missed_ingredients}\n"
 
             if recipe_id:
-                # Spoonacular'da tarif linki oluştur
-                recipe_url = f"https://spoonacular.com/recipes/{title.lower().replace(' ', '-')}-{recipe_id}"
-                result_text += f"   • 🔗 Tarif linki: {recipe_url}\n"
+                # Spoonacular'da tarif linki oluştur - URL'yi temizle
+                clean_title = title.lower()
+                # Özel karakterleri temizle
+                import re
+                clean_title = re.sub(r'[^a-z0-9\s-]', '', clean_title)
+                clean_title = re.sub(r'\s+', '-', clean_title.strip())
+                clean_title = re.sub(r'-+', '-', clean_title)
+
+                recipe_url = f"https://spoonacular.com/recipes/{clean_title}-{recipe_id}"
+                result_text += f"   • 🔗 **Tarif linki:** {recipe_url}\n"
+                result_text += f"   • 📋 **Detay için ID:** {recipe_id}\n"
 
             result_text += "\n"
 
         result_text += "\n💡 **İpucu:** Daha iyi sonuçlar için daha fazla malzeme ekleyin!"
+        result_text += "\n🔍 **Detaylı tarif için:** `get_recipe_details` tool'unu kullanın"
 
         return result_text
 

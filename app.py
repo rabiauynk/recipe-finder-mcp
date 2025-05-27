@@ -5,14 +5,19 @@ Kullanıcının verdiği malzemelere göre yemek tarifi önerir (Spoonacular API
 """
 
 import os
+import re
 
 import requests
+from googletrans import Translator
 from mcp.server.fastmcp import FastMCP
 
 # Spoonacular API base URL
 SPOONACULAR_BASE_URL = "https://api.spoonacular.com/recipes"
 
-# Türkçe-İngilizce malzeme çeviri sözlüğü
+# Google Translate instance
+translator = Translator()
+
+# Türkçe-İngilizce malzeme çeviri sözlüğü (fallback için)
 INGREDIENT_TRANSLATIONS = {
     # Temel malzemeler
     "yumurta": "egg",
@@ -174,38 +179,27 @@ RECIPE_TRANSLATIONS = {
     "sweet": "tatlı"
 }
 
+def translate_to_turkish(text: str) -> str:
+    """Google Translate kullanarak İngilizce metni Türkçeye çevir"""
+    if not text or not text.strip():
+        return text
+
+    try:
+        # Google Translate ile çevir
+        result = translator.translate(text, src='en', dest='tr')
+        return result.text
+    except Exception as e:
+        # Hata durumunda orijinal metni döndür
+        print(f"Translation error: {e}")
+        return text
+
 def translate_recipe_title(title: str) -> str:
     """İngilizce tarif ismini Türkçeye çevir"""
     if not title:
         return title
 
-    # Küçük harfe çevir ve kelimelere ayır
-    words = title.lower().split()
-    translated_words = []
-
-    for word in words:
-        # Noktalama işaretlerini temizle
-        clean_word = word.strip('.,!?()[]{}":;')
-
-        # Çeviri sözlüğünde ara
-        if clean_word in RECIPE_TRANSLATIONS:
-            translated_words.append(RECIPE_TRANSLATIONS[clean_word])
-        else:
-            # Kısmi eşleşme ara
-            found = False
-            for en_word, tr_word in RECIPE_TRANSLATIONS.items():
-                if en_word in clean_word or clean_word in en_word:
-                    translated_words.append(tr_word)
-                    found = True
-                    break
-
-            if not found:
-                # Çeviri bulunamazsa orijinal kelimeyi kullan
-                translated_words.append(clean_word)
-
-    # İlk harfi büyük yap
-    result = ' '.join(translated_words)
-    return result.capitalize()
+    # Google Translate kullan
+    return translate_to_turkish(title)
 
 # Initialize the FastMCP server
 mcp = FastMCP("recipe-finder-mcp")
@@ -366,7 +360,7 @@ def get_recipe_details(recipe_id: int) -> str:
                 name = ingredient.get('name', '')
 
                 # Malzeme ismini Türkçeye çevir
-                turkish_name = translate_recipe_title(name)
+                turkish_name = translate_to_turkish(name)
 
                 result_text += f"   • {amount} {unit} {turkish_name}\n"
 
@@ -377,9 +371,10 @@ def get_recipe_details(recipe_id: int) -> str:
             instructions = recipe['instructions']
             if isinstance(instructions, str):
                 # Remove HTML tags
-                import re
                 instructions = re.sub('<[^<]+?>', '', instructions)
-                result_text += f"{instructions}\n"
+                # Türkçeye çevir
+                turkish_instructions = translate_to_turkish(instructions)
+                result_text += f"{turkish_instructions}\n"
 
         # Recipe URL
         if recipe.get('sourceUrl'):

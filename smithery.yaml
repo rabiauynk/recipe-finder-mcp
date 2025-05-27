@@ -1,0 +1,12 @@
+name: recipe-finder-mcp
+description: Kullanıcının verdiği malzemelere göre yemek tarifi önerir (Spoonacular API)
+version: 1.0.0
+endpoints:
+  - path: /recipes
+    method: GET
+    queryParams:
+      - name: ingredients
+        type: string
+        required: true
+        description: Malzemeleri virgül ile yaz (örnek: yumurta,domates,peynir)
+    description: Malzemelere göre önerilen yemek tariflerini döner

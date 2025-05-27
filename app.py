@@ -96,4 +96,13 @@ def find_recipes_by_ingredients(ingredients: str, number: int = 5) -> str:
         return f"⚠️ Beklenmeyen hata: {str(e)}"
 
 if __name__ == "__main__":
-    mcp.run()
+    import sys
+
+    # Ensure proper stdio handling
+    try:
+        mcp.run()
+    except KeyboardInterrupt:
+        sys.exit(0)
+    except Exception as e:
+        print(f"Server error: {e}", file=sys.stderr)
+        sys.exit(1)

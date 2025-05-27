@@ -113,6 +113,100 @@ def translate_ingredients(ingredients_str: str) -> str:
 
     return ','.join(translated)
 
+# İngilizce-Türkçe tarif ismi çeviri sözlüğü
+RECIPE_TRANSLATIONS = {
+    # Temel yemek terimleri
+    "chicken": "tavuk",
+    "beef": "dana eti",
+    "pork": "domuz eti",
+    "fish": "balık",
+    "salmon": "somon",
+    "tuna": "ton balığı",
+    "shrimp": "karides",
+
+    # Yemek türleri
+    "soup": "çorba",
+    "salad": "salata",
+    "pasta": "makarna",
+    "pizza": "pizza",
+    "sandwich": "sandviç",
+    "burger": "hamburger",
+    "pie": "börek/turta",
+    "cake": "kek",
+    "bread": "ekmek",
+    "rice": "pirinç",
+
+    # Pişirme yöntemleri
+    "grilled": "ızgara",
+    "baked": "fırında",
+    "fried": "kızarmış",
+    "roasted": "kavrulmuş",
+    "steamed": "buğulama",
+    "boiled": "haşlanmış",
+    "sauteed": "sote",
+    "stuffed": "dolma",
+
+    # Sebzeler
+    "spinach": "ıspanak",
+    "tomato": "domates",
+    "onion": "soğan",
+    "garlic": "sarımsak",
+    "potato": "patates",
+    "carrot": "havuç",
+    "pepper": "biber",
+    "mushroom": "mantar",
+    "broccoli": "brokoli",
+    "zucchini": "kabak",
+    "eggplant": "patlıcan",
+
+    # Diğer
+    "with": "ile",
+    "and": "ve",
+    "cheese": "peynir",
+    "egg": "yumurta",
+    "milk": "süt",
+    "cream": "krema",
+    "sauce": "sos",
+    "dough": "hamur",
+    "homemade": "ev yapımı",
+    "fresh": "taze",
+    "spicy": "baharatlı",
+    "sweet": "tatlı"
+}
+
+def translate_recipe_title(title: str) -> str:
+    """İngilizce tarif ismini Türkçeye çevir"""
+    if not title:
+        return title
+
+    # Küçük harfe çevir ve kelimelere ayır
+    words = title.lower().split()
+    translated_words = []
+
+    for word in words:
+        # Noktalama işaretlerini temizle
+        clean_word = word.strip('.,!?()[]{}":;')
+
+        # Çeviri sözlüğünde ara
+        if clean_word in RECIPE_TRANSLATIONS:
+            translated_words.append(RECIPE_TRANSLATIONS[clean_word])
+        else:
+            # Kısmi eşleşme ara
+            found = False
+            for en_word, tr_word in RECIPE_TRANSLATIONS.items():
+                if en_word in clean_word or clean_word in en_word:
+                    translated_words.append(tr_word)
+                    found = True
+                    break
+
+            if not found:
+                # Çeviri bulunamazsa orijinal kelimeyi kullan
+                translated_words.append(clean_word)
+
+    # İlk harfi büyük yap
+    result = ' '.join(translated_words)
+    return result.capitalize()
+
 # Initialize the FastMCP server
 mcp = FastMCP("recipe-finder-mcp")
 
@@ -185,7 +279,12 @@ def find_recipes_by_ingredients(ingredients: str, number: int = 5) -> str:
             missed_ingredients = recipe.get("missedIngredientCount", 0)
             recipe_id = recipe.get("id", "")
 
-            result_text += f"**{i}. {title}**\n"
+            # Tarif ismini Türkçeye çevir
+            turkish_title = translate_recipe_title(title)
+
+            result_text += f"**{i}. {turkish_title}**\n"
+            if title != turkish_title:
+                result_text += f"   *(Orijinal: {title})*\n"
             result_text += f"   • Kullanılan malzemeler: {used_ingredients}\n"
             result_text += f"   • Eksik malzemeler: {missed_ingredients}\n"
 
@@ -244,7 +343,13 @@ def get_recipe_details(recipe_id: int) -> str:
         recipe = response.json()
 
         # Format detailed response
-        result_text = f"🍳 **{recipe.get('title', 'Bilinmeyen Tarif')}**\n\n"
+        original_title = recipe.get('title', 'Bilinmeyen Tarif')
+        turkish_title = translate_recipe_title(original_title)
+
+        result_text = f"🍳 **{turkish_title}**\n"
+        if original_title != turkish_title:
+            result_text += f"*(Orijinal: {original_title})*\n"
+        result_text += "\n"
 
         # Basic info
         if recipe.get('readyInMinutes'):
@@ -259,7 +364,11 @@ def get_recipe_details(recipe_id: int) -> str:
                 amount = ingredient.get('amount', '')
                 unit = ingredient.get('unit', '')
                 name = ingredient.get('name', '')
-                result_text += f"   • {amount} {unit} {name}\n"
+
+                # Malzeme ismini Türkçeye çevir
+                turkish_name = translate_recipe_title(name)
+
+                result_text += f"   • {amount} {unit} {turkish_name}\n"
 
         # Instructions
         if recipe.get('instructions'):

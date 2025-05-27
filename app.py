@@ -190,11 +190,85 @@ def find_recipes_by_ingredients(ingredients: str, number: int = 5) -> str:
             result_text += f"   • Eksik malzemeler: {missed_ingredients}\n"
 
             if recipe_id:
-                result_text += f"   • Detaylı tarif için ID: {recipe_id}\n"
+                # Spoonacular'da tarif linki oluştur
+                recipe_url = f"https://spoonacular.com/recipes/{title.lower().replace(' ', '-')}-{recipe_id}"
+                result_text += f"   • 🔗 Tarif linki: {recipe_url}\n"
 
             result_text += "\n"
 
         result_text += "\n💡 **İpucu:** Daha iyi sonuçlar için daha fazla malzeme ekleyin!"
+
+        return result_text
+
+    except requests.exceptions.RequestException as e:
+        return f"🚫 API isteği sırasında hata oluştu: {str(e)}"
+    except Exception as e:
+        return f"⚠️ Beklenmeyen hata: {str(e)}"
+
+@mcp.tool()
+def get_recipe_details(recipe_id: int) -> str:
+    """
+    Belirli bir tarifin detaylı bilgilerini getirir
+
+    Args:
+        recipe_id: Spoonacular tarif ID'si
+
+    Returns:
+        Tarifin detaylı bilgileri (malzemeler, talimatlar, beslenme bilgisi)
+    """
+    # Get API key from environment
+    api_key = os.getenv("SPOONACULAR_API_KEY")
+    if not api_key:
+        return "❌ Hata: SPOONACULAR_API_KEY environment variable bulunamadı."
+
+    try:
+        # Get detailed recipe information
+        url = f"{SPOONACULAR_BASE_URL}/{recipe_id}/information"
+        params = {
+            "apiKey": api_key,
+            "includeNutrition": True
+        }
+
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+
+        recipe = response.json()
+
+        # Format detailed response
+        result_text = f"🍳 **{recipe.get('title', 'Bilinmeyen Tarif')}**\n\n"
+
+        # Basic info
+        if recipe.get('readyInMinutes'):
+            result_text += f"⏱️ Hazırlık süresi: {recipe['readyInMinutes']} dakika\n"
+        if recipe.get('servings'):
+            result_text += f"👥 Porsiyon: {recipe['servings']} kişilik\n"
+
+        # Ingredients
+        if recipe.get('extendedIngredients'):
+            result_text += f"\n📝 **Malzemeler:**\n"
+            for ingredient in recipe['extendedIngredients']:
+                amount = ingredient.get('amount', '')
+                unit = ingredient.get('unit', '')
+                name = ingredient.get('name', '')
+                result_text += f"   • {amount} {unit} {name}\n"
+
+        # Instructions
+        if recipe.get('instructions'):
+            result_text += f"\n👨‍🍳 **Yapılışı:**\n"
+            # Instructions sometimes come as HTML, clean it up
+            instructions = recipe['instructions']
+            if isinstance(instructions, str):
+                # Remove HTML tags
+                import re
+                instructions = re.sub('<[^<]+?>', '', instructions)
+                result_text += f"{instructions}\n"
+
+        # Recipe URL
+        if recipe.get('sourceUrl'):
+            result_text += f"\n🔗 **Orijinal tarif:** {recipe['sourceUrl']}\n"
+        elif recipe.get('id'):
+            recipe_url = f"https://spoonacular.com/recipes/{recipe.get('title', '').lower().replace(' ', '-')}-{recipe['id']}"
+            result_text += f"\n🔗 **Spoonacular linki:** {recipe_url}\n"
 
         return result_text
 
